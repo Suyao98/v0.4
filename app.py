@@ -3,15 +3,12 @@ import datetime
 from datetime import date, timedelta
 import streamlit as st
 
-# ========== 基础：干支、甲子表 ==========
+# ---------- 干支、五行、颜色等基本数据 -----------
+
 tiangan = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"]
 dizhi = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"]
 GZS_LIST = [tiangan[i%10] + dizhi[i%12] for i in range(60)]
 
-def ganzhi_list():
-    return GZS_LIST
-
-# 五行（按天干）
 WUXING_OF_GAN = {
     "甲":"木","乙":"木",
     "丙":"火","丁":"火",
@@ -19,22 +16,19 @@ WUXING_OF_GAN = {
     "庚":"金","辛":"金",
     "壬":"水","癸":"水"
 }
-# 五行（按地支）
 WUXING_OF_DZ = {
     "子":"水","丑":"土","寅":"木","卯":"木","辰":"土","巳":"火",
     "午":"火","未":"土","申":"金","酉":"金","戌":"土","亥":"水"
 }
 
-# 五行颜色
 WUXING_COLOR = {
-    "木": "#2e7d32",   # 绿
-    "火": "#d32f2f",   # 红
-    "土": "#c19a6b",   # 土色（类似沙土色）
-    "金": "#ffd700",   # 金黄色（黄金色）
-    "水": "#1565c0"    # 蓝
+    "木": "#2e7d32",
+    "火": "#d32f2f",
+    "土": "#c19a6b",
+    "金": "#ffd700",
+    "水": "#1565c0"
 }
 
-# ========== 合/冲 规则 ==========
 gan_he = {"甲":"己","己":"甲","乙":"庚","庚":"乙","丙":"辛","辛":"丙","丁":"壬","壬":"丁","戊":"癸","癸":"戊"}
 gan_chong = {"甲":"庚","庚":"甲","乙":"辛","辛":"乙","丙":"壬","壬":"丙","丁":"癸","癸":"丁"}
 zhi_he = {"子":"丑","丑":"子","寅":"亥","亥":"寅","卯":"戌","戌":"卯","辰":"酉","酉":"辰","巳":"申","申":"巳","午":"未","未":"午"}
@@ -51,7 +45,6 @@ def unique_list(seq):
     return out
 
 def calc_jixiong(gz):
-    """按既定规则计算某柱的 吉/凶 干支（双合进一/双冲退一）"""
     if not gz or len(gz) < 2:
         return {"吉":[], "凶":[]}
     tg, dz = gz[0], gz[1]
@@ -80,7 +73,8 @@ def analyze_bazi(year_zhu, month_zhu, day_zhu, time_zhu):
         all_ji.extend(r["吉"]); all_xiong.extend(r["凶"])
     return unique_list(all_ji), unique_list(all_xiong)
 
-# ========== 八字推算：锚点日法（1984-01-01 甲午） & 月柱/时柱规则 ==========
+# --------- 八字推算函数 ----------
+
 ANCHOR_DATE = date(1984,1,1)
 ANCHOR_GZ = "甲午"
 ANCHOR_INDEX = GZS_LIST.index(ANCHOR_GZ)
@@ -108,6 +102,7 @@ JIEQI = [
     (7,7,"未"), (8,7,"申"), (9,7,"酉"), (10,8,"戌"), (11,7,"亥"),
     (12,7,"子"), (1,6,"丑"),
 ]
+
 def get_month_branch(year, month, day):
     bd = date(year, month, day)
     for i,(m,d,branch) in enumerate(JIEQI):
@@ -180,9 +175,6 @@ def color_of_dz(dz_ch):
     return WUXING_COLOR.get(el, "#000000")
 
 def render_four_pillars_two_rows(year_p, month_p, day_p, hour_p):
-    """
-    四柱拆成两行：上行天干（五行颜色），下行地支（五行颜色）
-    """
     pillars = [year_p, month_p, day_p, hour_p]
     pillars = [p if p and len(p) == 2 else "  " for p in pillars]
     tiangan_row = [p[0] for p in pillars]
@@ -249,20 +241,48 @@ def show_jixiong(ji_list, xiong_list, birth_year):
                 unsafe_allow_html=True
             )
 
-# ========== 真太阳时修正计算 ==========
+# ----------- 全国市级城市经纬度示例 -------------
+# 这里示例部分城市，建议你用更全数据替换
+CITY_COORDS = {
+    "北京市": (39.9042, 116.4074),
+    "上海市": (31.2304, 121.4737),
+    "广州市": (23.1291, 113.2644),
+    "深圳市": (22.5431, 114.0579),
+    "成都市": (30.5728, 104.0668),
+    "杭州市": (30.2741, 120.1551),
+    "武汉市": (30.5928, 114.3055),
+    "西安市": (34.3416, 108.9398),
+    "南京市": (32.0603, 118.7969),
+    "天津市": (39.3434, 117.3616),
+    "重庆市": (29.4316, 106.9123),
+    "郑州市": (34.7466, 113.6254),
+    # 可继续补充
+}
+
+def find_city_coords(input_city):
+    city = input_city.strip()
+    if not city:
+        return None
+    if city.endswith("市"):
+        if city in CITY_COORDS:
+            return CITY_COORDS[city]
+    else:
+        city_with_shi = city + "市"
+        if city_with_shi in CITY_COORDS:
+            return CITY_COORDS[city_with_shi]
+        if city in CITY_COORDS:
+            return CITY_COORDS[city]
+    for c in CITY_COORDS.keys():
+        if city in c:
+            return CITY_COORDS[c]
+    return None
+
 def calc_true_solar_time_correction(longitude):
-    """
-    计算真太阳时修正（单位：小时）
-    输入经度（正东经），中国时区东八区标准经线为120°
-    """
     standard_meridian = 120.0
     correction = (longitude - standard_meridian) / 15.0
     return correction
 
 def corrected_hour_minute(hour, minute, longitude):
-    """
-    根据经度修正时间，返回修正后的小时和分钟
-    """
     correction = calc_true_solar_time_correction(longitude)
     total_minutes = hour * 60 + minute + correction * 60
     total_minutes = total_minutes % (24 * 60)
@@ -270,26 +290,8 @@ def corrected_hour_minute(hour, minute, longitude):
     adj_min = int(total_minutes % 60)
     return adj_hour, adj_min
 
-# ========== 中国常用省会及城市经纬度 ==========
-CITY_COORDS = {
-    "北京": (39.9042, 116.4074),
-    "上海": (31.2304, 121.4737),
-    "广州": (23.1291, 113.2644),
-    "深圳": (22.5431, 114.0579),
-    "武汉": (30.5928, 114.3055),
-    "成都": (30.5728, 104.0668),
-    "西安": (34.3416, 108.9398),
-    "郑州": (34.7466, 113.6254),
-    "杭州": (30.2741, 120.1551),
-    "南京": (32.0603, 118.7969),
-    "天津": (39.3434, 117.3616),
-    "哈尔滨": (45.8038, 126.5349),
-    "长沙": (28.2282, 112.9388),
-    "合肥": (31.8206, 117.2272),
-    "南昌": (28.6820, 115.8579),
-}
+# ------------- Streamlit 界面 -------------
 
-# ========== Streamlit 页面 ==========
 st.set_page_config(page_title="流年吉凶", layout="centered")
 st.title("流年吉凶")
 
@@ -304,7 +306,7 @@ if mode == "阳历生日":
     with col2:
         unknown_time = st.checkbox("时辰未知（跳过时柱）", value=False)
         if not unknown_time:
-            city_input = st.text_input("输入城市名称（可非省会）", value="北京")
+            city_input = st.text_input("输入城市名称（可非省会，如‘成都’）", value="北京")
             use_true_solar = st.checkbox("使用真太阳时修正", value=False)
             bhour = st.number_input("小时（0-23）", min_value=0, max_value=23, value=8, step=1)
             bmin = st.number_input("分钟（0-59）", min_value=0, max_value=59, value=0, step=1)
@@ -315,18 +317,19 @@ if mode == "阳历生日":
 
     if st.button("查询吉凶"):
         if bhour != -1 and use_true_solar:
-            coords = CITY_COORDS.get(city_input.strip())
+            coords = find_city_coords(city_input)
             if coords is None:
                 st.warning(f"未找到城市“{city_input}”经纬度，默认使用东经120度")
                 lon = 120.0
             else:
-                lon = coords[1]  # 取经度
+                lon = coords[1]
             adj_hour, adj_min = corrected_hour_minute(bhour, bmin, lon)
         else:
             adj_hour, adj_min = bhour, bmin
 
         hour_val = None if bhour == -1 else adj_hour
         min_val = None if bhour == -1 else adj_min
+
         try:
             year_p, adj_year = year_ganzhi(byear, bmonth, bday, hour_val or 0, min_val or 0)
             day_p = day_ganzhi_by_anchor(byear, bmonth, bday, hour_val)
@@ -344,6 +347,18 @@ if mode == "阳历生日":
             st.error(f"计算出错：{e}")
 
 elif mode == "四柱八字":
-    st.warning("此功能尚未实现，请先使用“阳历生日”模式。")
+    nianzhu = st.text_input("年柱", max_chars=2)
+    yuezhu = st.text_input("月柱", max_chars=2)
+    rizhu = st.text_input("日柱", max_chars=2)
+    shizhu = st.text_input("时柱", max_chars=2)
+    start_year = st.number_input("用于列出吉凶年份的起始年（例如出生年）", min_value=1600, max_value=2100, value=1990, step=1)
 
-# 代码结束
+    if st.button("分析吉凶"):
+        try:
+            ji, xiong = analyze_bazi(nianzhu.strip(), yuezhu.strip(), rizhu.strip(), shizhu.strip())
+            st.markdown("## 你输入的四柱")
+            render_four_pillars_two_rows(nianzhu.strip() or "  ", yuezhu.strip() or "  ", rizhu.strip() or "  ", shizhu.strip() or "  ")
+            st.markdown("---")
+            show_jixiong(ji, xiong, int(start_year))
+        except Exception as e:
+            st.error(f"计算出错：{e}")
