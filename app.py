@@ -381,17 +381,17 @@ def find_city_coords(input_city):
     if not city:
         return None
     if city.endswith("市"):
-        if city in CITY_COORDS:
-            return CITY_COORDS[city]
+        if city in city_coords:
+            return city_coords[city]
     else:
         city_with_shi = city + "市"
-        if city_with_shi in CITY_COORDS:
-            return CITY_COORDS[city_with_shi]
-        if city in CITY_COORDS:
-            return CITY_COORDS[city]
-    for c in CITY_COORDS.keys():
+        if city_with_shi in city_coords:
+            return city_coords[city_with_shi]
+        if city in city_coords:
+            return city_coords[city]
+    for c in city_coords.keys():
         if city in c:
-            return CITY_COORDS[c]
+            return city_coords[c]
     return None
 
 def calc_true_solar_time_correction(longitude):
