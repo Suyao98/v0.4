@@ -2,7 +2,6 @@
 import datetime
 from datetime import date, timedelta
 import streamlit as st
-import math
 
 # ========== 基础：干支、甲子表 ==========
 tiangan = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"]
@@ -250,7 +249,28 @@ def show_jixiong(ji_list, xiong_list, birth_year):
                 unsafe_allow_html=True
             )
 
-# ========== 真太阳时修正相关 ==========
+# ========== 真太阳时修正计算 ==========
+def calc_true_solar_time_correction(longitude):
+    """
+    计算真太阳时修正（单位：小时）
+    输入经度（正东经），中国时区东八区标准经线为120°
+    """
+    standard_meridian = 120.0
+    correction = (longitude - standard_meridian) / 15.0
+    return correction
+
+def corrected_hour_minute(hour, minute, longitude):
+    """
+    根据经度修正时间，返回修正后的小时和分钟
+    """
+    correction = calc_true_solar_time_correction(longitude)
+    total_minutes = hour * 60 + minute + correction * 60
+    total_minutes = total_minutes % (24 * 60)
+    adj_hour = int(total_minutes // 60)
+    adj_min = int(total_minutes % 60)
+    return adj_hour, adj_min
+
+# ========== 中国常用省会及城市经纬度 ==========
 CITY_COORDS = {
     "北京": (39.9042, 116.4074),
     "上海": (31.2304, 121.4737),
@@ -269,32 +289,6 @@ CITY_COORDS = {
     "南昌": (28.6820, 115.8579),
 }
 
-def calc_true_solar_time_correction(longitude, standard_meridian=120):
-    """
-    计算真太阳时修正值（小时），longitude为度数（东经为正），
-    standard_meridian默认中国标准时间东八区中央经线120°E
-    """
-    correction = (longitude - standard_meridian) / 15.0
-    return correction  # 单位：小时
-
-def corrected_hour_minute(hour, minute, longitude):
-    """
-    根据真太阳时修正，调整时刻
-    """
-    time_decimal = hour + minute / 60
-    correction = calc_true_solar_time_correction(longitude)
-    true_time = time_decimal + correction
-    if true_time < 0:
-        true_time += 24
-    elif true_time >= 24:
-        true_time -= 24
-    new_hour = int(true_time)
-    new_minute = int(round((true_time - new_hour)*60))
-    if new_minute == 60:
-        new_minute = 0
-        new_hour = (new_hour + 1) % 24
-    return new_hour, new_minute
-
 # ========== Streamlit 页面 ==========
 st.set_page_config(page_title="流年吉凶", layout="centered")
 st.title("流年吉凶")
@@ -310,10 +304,10 @@ if mode == "阳历生日":
     with col2:
         unknown_time = st.checkbox("时辰未知（跳过时柱）", value=False)
         if not unknown_time:
-            city = st.selectbox("请选择常用城市（省会）用于真太阳时修正", list(CITY_COORDS.keys()))
+            city_input = st.text_input("输入城市名称（可非省会）", value="北京")
+            use_true_solar = st.checkbox("使用真太阳时修正", value=False)
             bhour = st.number_input("小时（0-23）", min_value=0, max_value=23, value=8, step=1)
             bmin = st.number_input("分钟（0-59）", min_value=0, max_value=59, value=0, step=1)
-            use_true_solar = st.checkbox("使用真太阳时修正", value=False)
         else:
             bhour = -1
             bmin = 0
@@ -321,7 +315,12 @@ if mode == "阳历生日":
 
     if st.button("查询吉凶"):
         if bhour != -1 and use_true_solar:
-            lon = CITY_COORDS.get(city, 120)  # 默认120E
+            coords = CITY_COORDS.get(city_input.strip())
+            if coords is None:
+                st.warning(f"未找到城市“{city_input}”经纬度，默认使用东经120度")
+                lon = 120.0
+            else:
+                lon = coords[1]  # 取经度
             adj_hour, adj_min = corrected_hour_minute(bhour, bmin, lon)
         else:
             adj_hour, adj_min = bhour, bmin
@@ -344,20 +343,7 @@ if mode == "阳历生日":
         except Exception as e:
             st.error(f"计算出错：{e}")
 
-else:
-    st.markdown("请直接输入四柱八字（例如：庚午、辛巳），时柱可填“不知道”以跳过。")
-    nianzhu = st.text_input("年柱", max_chars=2)
-    yuezhu = st.text_input("月柱", max_chars=2)
-    rizhu = st.text_input("日柱", max_chars=2)
-    shizhu = st.text_input("时柱", max_chars=2)
-    start_year = st.number_input("用于列出吉凶年份的起始年（例如出生年）", min_value=1600, max_value=2100, value=1990, step=1)
+elif mode == "四柱八字":
+    st.warning("此功能尚未实现，请先使用“阳历生日”模式。")
 
-    if st.button("分析吉凶"):
-        try:
-            ji, xiong = analyze_bazi(nianzhu.strip(), yuezhu.strip(), rizhu.strip(), shizhu.strip())
-            st.markdown("## 你输入的四柱")
-            render_four_pillars_two_rows(nianzhu.strip() or "  ", yuezhu.strip() or "  ", rizhu.strip() or "  ", shizhu.strip() or "  ")
-            st.markdown("---")
-            show_jixiong(ji, xiong, int(start_year))
-        except Exception as e:
-            st.error(f"计算出错：{e}")
+# 代码结束
