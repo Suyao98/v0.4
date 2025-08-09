@@ -423,7 +423,7 @@ if mode == "阳历生日":
     with col2:
         unknown_time = st.checkbox("时辰未知（跳过时柱）", value=False)
         if not unknown_time:
-            city_input = st.text_input("输入城市名称（可非省会，如‘成都’）", value="北京")
+            city_input = st.text_input("输入城市名称（如‘成都’）", value="北京")
             use_true_solar = st.checkbox("使用真太阳时修正", value=False)
             bhour = st.number_input("小时（0-23）", min_value=0, max_value=23, value=8, step=1)
             bmin = st.number_input("分钟（0-59）", min_value=0, max_value=59, value=0, step=1)
@@ -473,7 +473,7 @@ elif mode == "四柱八字":
     if st.button("分析吉凶"):
         try:
             ji, xiong = analyze_bazi(nianzhu.strip(), yuezhu.strip(), rizhu.strip(), shizhu.strip())
-            st.markdown("## 你输入的四柱")
+            st.markdown("## 四柱八字")
             render_four_pillars_two_rows(nianzhu.strip() or "  ", yuezhu.strip() or "  ", rizhu.strip() or "  ", shizhu.strip() or "  ")
             st.markdown("---")
             show_jixiong(ji, xiong, int(start_year))
